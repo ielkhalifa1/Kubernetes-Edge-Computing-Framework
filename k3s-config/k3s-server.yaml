@@ -1,0 +1,82 @@
+# K3s Server Configuration for Edge Computing
+# Optimized for resource-constrained environments
+
+# Basic server configuration
+cluster-init: true
+datastore-endpoint: "embedded"
+
+# Network configuration
+cluster-cidr: "10.42.0.0/16"
+service-cidr: "10.43.0.0/16"
+cluster-dns: "10.43.0.10"
+
+# Security configuration
+write-kubeconfig-mode: "0644"
+tls-san:
+  - "localhost"
+  - "127.0.0.1"
+
+# Performance optimizations for edge
+disable:
+  - traefik        # Disable default ingress controller to save resources
+  - servicelb      # Disable service load balancer
+  - metrics-server # We'll use our own lightweight monitoring
+
+# Enable only essential components
+enable-pprof: false
+
+# Node configuration
+node-name: "${NODE_NAME}"
+node-ip: "${NODE_IP}"
+node-external-ip: "${NODE_EXTERNAL_IP}"
+
+# Kubelet configuration for edge optimization
+kubelet-arg:
+  - "max-pods=50"                    # Limit pods for resource constraints
+  - "pods-per-core=5"                # Conservative pod density
+  - "image-gc-high-threshold=70"     # Aggressive image cleanup
+  - "image-gc-low-threshold=50"      # Aggressive image cleanup
+  - "minimum-image-ttl-duration=10m" # Fast image cleanup
+  - "eviction-hard=memory.available<100Mi,nodefs.available<1Gi"
+  - "eviction-soft=memory.available<200Mi,nodefs.available<2Gi"
+  - "eviction-soft-grace-period=memory.available=2m,nodefs.available=2m"
+  - "kube-reserved=cpu=100m,memory=100Mi"
+  - "system-reserved=cpu=100m,memory=100Mi"
+  - "serialize-image-pulls=false"    # Parallel image pulls for faster startup
+  - "registry-qps=5"                 # Conservative registry requests
+  - "registry-burst=10"              # Conservative registry requests
+  - "event-qps=0"                    # Disable event rate limiting for edge
+
+# Kube API server optimizations
+kube-apiserver-arg:
+  - "audit-log-maxage=1"             # Minimal audit log retention
+  - "audit-log-maxbackup=1"          # Minimal audit log retention
+  - "audit-log-maxsize=10"           # Small audit logs
+  - "default-watch-cache-size=100"   # Reduce memory usage
+  - "watch-cache-sizes=persistentvolumes#100,nodes#100"
+  - "max-requests-inflight=100"      # Reduce concurrent requests
+  - "max-mutating-requests-inflight=50"
+  - "min-request-timeout=300"        # Shorter timeouts for edge networks
+
+# Kube controller manager optimizations
+kube-controller-manager-arg:
+  - "node-monitor-period=20s"        # Faster node monitoring for edge
+  - "node-monitor-grace-period=20s"  # Faster failure detection
+  - "pod-eviction-timeout=30s"       # Faster pod eviction
+  - "concurrent-deployment-syncs=2"  # Reduce concurrent operations
+  - "concurrent-replicaset-syncs=2"
+  - "concurrent-namespace-syncs=2"
+  - "concurrent-service-syncs=2"
+
+# Etcd optimizations (if using external etcd)
+etcd-arg:
+  - "quota-backend-bytes=2147483648"  # 2GB quota
+  - "max-request-bytes=1572864"       # 1.5MB max request
+  - "grpc-keepalive-min-time=30s"
+  - "grpc-keepalive-interval=60s"
+  - "grpc-keepalive-timeout=20s"
+
+# Logging configuration
+log: "/var/log/k3s.log"
+alsologtostderr: false
+v: 1  # Minimal logging for edge
